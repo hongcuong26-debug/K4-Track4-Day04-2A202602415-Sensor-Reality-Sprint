@@ -1,0 +1,87 @@
+{
+  "data_kind": "synthetic",
+  "config": {
+    "project": {
+      "name": "K4-Track4-Day04-2A202602415-Sensor-Reality-Sprint",
+      "data_kind": "synthetic"
+    },
+    "simulation": {
+      "duration_s": 10.0,
+      "dt_s": 0.01,
+      "lidar_hz": 10.0,
+      "sigma_cam_m": 0.05,
+      "sigma_lidar_m": 0.05,
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "offsets_ms": [
+        0,
+        50,
+        100,
+        150,
+        200
+      ]
+    },
+    "thresholds": {
+      "pos_error_concern_m": 0.5
+    },
+    "compensation": {
+      "dt_estimation_errors_ms": [
+        0,
+        -20,
+        20
+      ]
+    },
+    "scenarios": {
+      "S1": {
+        "v_rel_mps": [
+          5,
+          10,
+          20
+        ]
+      },
+      "S2": {
+        "v_rel_mps": [
+          10,
+          20
+        ],
+        "accel_mps2": [
+          -3,
+          -6
+        ]
+      },
+      "S3": {
+        "d_gap_m": [
+          2,
+          4,
+          8
+        ],
+        "v_rel_mps": 10
+      }
+    }
+  },
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "git_commit": "UNKNOWN",
+  "runtime_seconds": 1.0098066329956055,
+  "generated_utc": "20261006T035539Z"
+}
