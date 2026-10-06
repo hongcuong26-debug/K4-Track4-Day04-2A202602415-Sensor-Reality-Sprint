@@ -1,0 +1,103 @@
+{
+  "data_kind": "synthetic",
+  "config": {
+    "project": {
+      "name": "K4-Track4-Day04-2A202602415-Sensor-Reality-Sprint",
+      "data_kind": "synthetic"
+    },
+    "simulation": {
+      "duration_s": 10.0,
+      "lidar_hz": 10.0,
+      "sigma_cam_m": 0.05,
+      "sigma_lidar_m": 0.05,
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "offsets_ms": [
+        0,
+        50,
+        100,
+        150,
+        200
+      ]
+    },
+    "thresholds": {
+      "pos_error_concern_m": 0.5
+    },
+    "scenarios": {
+      "S1": {
+        "v_rel_mps": [
+          5,
+          10,
+          20
+        ]
+      },
+      "S2": {
+        "v_rel_mps": [
+          10,
+          20
+        ],
+        "accel_mps2": [
+          -3,
+          -6
+        ]
+      },
+      "S3": {
+        "d_gap_m": [
+          2,
+          4,
+          8
+        ],
+        "v_rel_mps": 10
+      }
+    }
+  },
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "git_commit": "dcb072584b9daaa05aa99c00a07f37b9405754c7",
+  "runtime_seconds": 1.4073486328125,
+  "generated_utc": "20261006T042135Z",
+  "command": "python -m sensor_sprint.run_benchmark --config configs/t4.yaml",
+  "python": "3.11.9",
+  "packages": {
+    "numpy": "2.4.6",
+    "pandas": "3.0.6",
+    "matplotlib": "3.11.2",
+    "pyyaml": "6.0.3",
+    "pytest": "9.1.1"
+  },
+  "evaluation_start_s": 0.30000000000000004,
+  "evaluation_samples_per_seed": 97,
+  "input_sha256": {
+    "configs/t4.yaml": "e5e63d7d2e62705f9d6f288b8312d984690625774ee8c9e7a83efbb5abae610c",
+    "requirements-lock.txt": "eee849624f2c8aee0a769cf5f17b4721c67b4fe0a6900db4b7d47430ccd0252d",
+    "requirements.txt": "ef6b911a1098e7023b037712a8ff6375adb15acaf24d463f55aff4e4f2a0ca86",
+    "src/sensor_sprint/__init__.py": "e7cbfa41a3d9a09449b538cdb91e7658430ef7aae034052d896955e195f2ed67",
+    "src/sensor_sprint/compensation.py": "f9bd130b8a26d02e886ead8f9525db73d15de03027a0ace7527cee5da6f1453e",
+    "src/sensor_sprint/metrics.py": "144f4890f5e336bc457452ab8cb101cf57fc3e862d9ec77b51bf3cbce24a9571",
+    "src/sensor_sprint/plots.py": "ce07960b5fbbe74c564f3517bb3689b1ccdf2fe6320b0bc830a04a68d8cd1f2d",
+    "src/sensor_sprint/run_benchmark.py": "3897fa831e2945873412c016324481f5f10b9055403fc576154997526b0f0dc0",
+    "src/sensor_sprint/scenarios.py": "4bff81c620a9b3281da7489bdbef2fd3088cf0716621965e5adfb2711a2c336b",
+    "src/sensor_sprint/sensors.py": "fdcad6568023dc526cd46ff1d84c5a70a0b92612e71d56fa9b3e40e50c4b7b1d"
+  },
+  "git_worktree_dirty": true
+}

@@ -4,6 +4,9 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timezone
 import json
+import hashlib
+import importlib.metadata
+import platform
 from pathlib import Path
 import subprocess
 import time
@@ -32,6 +35,12 @@ def rng_pair(seed: int) -> tuple[np.random.Generator, np.random.Generator]:
     return np.random.default_rng(a), np.random.default_rng(b)
 
 
+def evaluation_mask(cfg: dict, t: np.ndarray, period: float) -> np.ndarray:
+    """Use identical times for every offset, excluding compensation warm-up."""
+    start = max(cfg["simulation"]["offsets_ms"]) / 1000.0 + period
+    return t >= start - 1e-12
+
+
 def run_s1(cfg: dict, t: np.ndarray, period: float) -> list[dict]:
     rows = []
     sigma_c, sigma_l = cfg["simulation"]["sigma_cam_m"], cfg["simulation"]["sigma_lidar_m"]
@@ -41,7 +50,7 @@ def run_s1(cfg: dict, t: np.ndarray, period: float) -> list[dict]:
             dt = dt_ms / 1000.0
             for seed in cfg["simulation"]["seeds"]:
                 rc, rl = rng_pair(int(seed)); cam = camera_measure(fn, t, sigma_c, rc); lid = lidar_measure(fn, t, dt, sigma_l, rl)
-                truth = fn(t); valid = t >= dt
+                truth = fn(t); valid = evaluation_mask(cfg, t, period)
                 exact = compensate_positions(lid, period, dt)
                 minus = compensate_positions(lid, period, max(0.0, dt - 0.020))
                 plus = compensate_positions(lid, period, dt + 0.020)
@@ -58,7 +67,7 @@ def run_s2(cfg: dict, t: np.ndarray, period: float) -> list[dict]:
             for dt_ms in cfg["simulation"]["offsets_ms"]:
                 dt = dt_ms/1000.0
                 for seed in cfg["simulation"]["seeds"]:
-                    _, rl = rng_pair(int(seed)); lid = lidar_measure(fn,t,dt,sigma_l,rl); truth=fn(t); valid=t>=dt
+                    _, rl = rng_pair(int(seed)); lid = lidar_measure(fn,t,dt,sigma_l,rl); truth=fn(t); valid=evaluation_mask(cfg,t,period)
                     exact=compensate_positions(lid,period,dt); minus=compensate_positions(lid,period,max(0,dt-.020)); plus=compensate_positions(lid,period,dt+.020)
                     th=theory_error(float(v),dt); pe=mean_position_error(lid,truth,valid)
                     rows.append(dict(data_kind="synthetic",scenario="S2",v_rel_mps=float(v),accel_mps2=float(a),d_gap_m=np.nan,seed=int(seed),dt_ms=int(dt_ms),pos_error_m=pe,theory_error_m=th,approx_gap_m=pe-th,assoc_swap_rate_pct=np.nan,residual_error_exact_m=mean_position_error(exact,truth,valid),residual_error_minus20_m=mean_position_error(minus,truth,valid),residual_error_plus20_m=mean_position_error(plus,truth,valid)))
@@ -72,7 +81,7 @@ def run_s3(cfg: dict, t: np.ndarray, period: float) -> list[dict]:
         for dt_ms in cfg["simulation"]["offsets_ms"]:
             dt=dt_ms/1000.0
             for seed in cfg["simulation"]["seeds"]:
-                rc,rl=rng_pair(int(seed)); cam=camera_measure(fn,t,sigma_c,rc); lid=lidar_measure(fn,t,dt,sigma_l,rl); truth=fn(t); valid=t>=dt
+                rc,rl=rng_pair(int(seed)); cam=camera_measure(fn,t,sigma_c,rc); lid=lidar_measure(fn,t,dt,sigma_l,rl); truth=fn(t); valid=evaluation_mask(cfg,t,period)
                 rows.append(dict(data_kind="synthetic",scenario="S3",v_rel_mps=v,accel_mps2=np.nan,d_gap_m=float(gap),seed=int(seed),dt_ms=int(dt_ms),pos_error_m=mean_position_error(lid[valid],truth[valid]),theory_error_m=theory_error(v,dt),approx_gap_m=mean_position_error(lid[valid],truth[valid])-theory_error(v,dt),assoc_swap_rate_pct=association_swap_rate(cam[valid],lid[valid]),residual_error_exact_m=np.nan,residual_error_minus20_m=np.nan,residual_error_plus20_m=np.nan))
     return rows
 
@@ -86,7 +95,10 @@ def write_summary(df: pd.DataFrame, cfg: dict, path: Path) -> None:
     for v,g in s1.groupby("v_rel_mps"):
         means=g.groupby("dt_ms").pos_error_m.mean(); hits=means[means>cfg["thresholds"]["pos_error_concern_m"]]
         lines.append(f"- v_rel={v:g} m/s: {int(hits.index[0]) if len(hits) else 'not reached'} ms")
-    lines += ["","## S2 braking approximation gap","","| v_rel | accel | Δt | mean pos_error (m) | mean approx_gap (m) |","|---:|---:|---:|---:|---:|"]
+    lines += ["", "Identical evaluation times are used for every condition, after max offset + one LiDAR period. Standard deviation is across seed-level means, not individual frames.", "", "## S1 compensation at v_rel=10 m/s", "", "| Δt (ms) | Before (m) | Exact offset (m) | Offset −20 ms (m) | Offset +20 ms (m) |", "|---:|---:|---:|---:|---:|"]
+    for dt,g in s1[s1.v_rel_mps==10].groupby("dt_ms"):
+        lines.append(f"| {dt:d} | {g.pos_error_m.mean():.4f} | {g.residual_error_exact_m.mean():.4f} | {g.residual_error_minus20_m.mean():.4f} | {g.residual_error_plus20_m.mean():.4f} |")
+    lines += ["","## S2 constant-acceleration approximation gap", "", "This unconstrained synthetic trajectory can reverse relative motion. It is not a braking-to-rest model. The comparator uses initial speed v0, not instantaneous speed.","","| v0 (m/s) | accel (m/s²) | Δt (ms) | mean pos_error (m) | mean approx_gap (m) |","|---:|---:|---:|---:|---:|"]
     s2=df[df.scenario=="S2"]
     for (v,a,dt),g in s2.groupby(["v_rel_mps","accel_mps2","dt_ms"]): lines.append(f"| {v:g} | {a:g} | {dt:d} | {g.pos_error_m.mean():.4f} | {g.approx_gap_m.mean():.4f} |")
     lines += ["","## S3 association swap rate","","| d_gap (m) | Δt (ms) | mean swap rate (%) |","|---:|---:|---:|"]
@@ -106,7 +118,14 @@ def main() -> None:
     rc,_=rng_pair(0); fn=lambda x:s1_position(x,10.0); cam=camera_measure(fn,t,0.0,rc); lid=lidar_measure(fn,t,0.150,0.0,np.random.default_rng(1)); plot_timeline(t,cam[:,0],lid[:,0],root/"figs/timeline_example.png")
     write_summary(df,cfg,root/"results/summary.md")
     stamp=datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"); runtime=time.time()-start
-    log={"data_kind":"synthetic","config":cfg,"seeds":cfg["simulation"]["seeds"],"git_commit":git_commit(),"runtime_seconds":runtime,"generated_utc":stamp}
+    tracked_inputs = sorted(list((root/"src").rglob("*.py")) + [root/"configs/t4.yaml", root/"requirements.txt", root/"requirements-lock.txt"])
+    versions = {name: importlib.metadata.version(name) for name in ("numpy", "pandas", "matplotlib", "pyyaml", "pytest")}
+    valid=evaluation_mask(cfg,t,period)
+    log={"data_kind":"synthetic","config":cfg,"seeds":cfg["simulation"]["seeds"],"git_commit":git_commit(),"runtime_seconds":runtime,"generated_utc":stamp,
+         "command":"python -m sensor_sprint.run_benchmark --config configs/t4.yaml", "python":platform.python_version(), "packages":versions,
+         "evaluation_start_s":float(t[valid][0]), "evaluation_samples_per_seed":int(valid.sum()),
+         "input_sha256":{str(path.relative_to(root)).replace("\\", "/"):hashlib.sha256(path.read_bytes()).hexdigest() for path in tracked_inputs},
+         "git_worktree_dirty":bool(subprocess.check_output(["git","status","--porcelain"],cwd=root,text=True).strip())}
     (root/"logs"/f"run_{stamp}.log").write_text(json.dumps(log,indent=2),encoding="utf-8")
     print(f"Synthetic benchmark complete: {len(df)} rows in {runtime:.2f}s")
 

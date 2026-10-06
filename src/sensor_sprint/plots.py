@@ -31,7 +31,7 @@ def plot_s2(df: pd.DataFrame, out: Path) -> None:
         ax.plot(agg.dt_ms, agg.pos_error_m, marker="o", label=f"observed v={v:g}, a={a:g}")
         ax.plot(agg.dt_ms, agg.theory_error_m, linestyle="--", label=f"vΔt v={v:g}")
     ax.set_xlabel("Time offset Δt (ms)"); ax.set_ylabel("Position error (m)")
-    ax.set_title("S2 synthetic braking: observed vs vΔt approximation")
+    ax.set_title("S2 constant acceleration: observed vs initial vΔt")
     ax.grid(True, alpha=0.3); ax.legend(fontsize=7, ncol=2)
     fig.tight_layout(); fig.savefig(out, dpi=160); plt.close(fig)
 
@@ -69,6 +69,6 @@ def plot_compensation(df: pd.DataFrame, out: Path) -> None:
     ax.bar(x + 1.5*width, agg.residual_error_plus20_m, width, label="comp Δt+20 ms")
     ax.set_xticks(x, [f"{int(v)} ms" for v in agg.index])
     ax.set_xlabel("True time offset Δt"); ax.set_ylabel("Mean position error (m)")
-    ax.set_title("Synthetic S1 motion compensation")
+    ax.set_title("Synthetic S1 compensation (mean over 5, 10, 20 m/s)")
     ax.legend(fontsize=8); ax.grid(True, axis="y", alpha=0.3)
     fig.tight_layout(); fig.savefig(out, dpi=160); plt.close(fig)

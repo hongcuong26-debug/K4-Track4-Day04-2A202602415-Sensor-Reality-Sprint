@@ -6,6 +6,7 @@ from sensor_sprint.compensation import compensate_positions
 from sensor_sprint.metrics import association_swap_rate, mean_position_error
 from sensor_sprint.scenarios import s1_position, s3_positions
 from sensor_sprint.sensors import lidar_measure
+from sensor_sprint.run_benchmark import evaluation_mask
 
 
 def test_s1_sigma_zero_matches_vdt() -> None:
@@ -55,3 +56,19 @@ def test_compensation_removes_s1_offset_without_noise() -> None:
     truth = fn(t)
     valid = t >= dt + period
     assert mean_position_error(corrected, truth, valid) < 1e-9
+
+
+def test_shared_window_excludes_clipped_velocity_for_all_offsets() -> None:
+    period = 0.1
+    t = np.arange(0.0, 10.0, period)
+    offsets = [0, 50, 100, 150, 200]
+    cfg = {"simulation": {"offsets_ms": offsets}}
+    valid = evaluation_mask(cfg, t, period)
+    assert valid.sum() == 97
+    fn = lambda x: s1_position(x, 10.0)
+    for offset in offsets:
+        dt = offset / 1000.0
+        lidar = lidar_measure(fn, t, dt, 0.0, np.random.default_rng(0))
+        assert abs(mean_position_error(lidar, fn(t), valid) - 10.0 * dt) < 1e-9
+        corrected = compensate_positions(lidar, period, dt)
+        assert mean_position_error(corrected, fn(t), valid) < 1e-9
